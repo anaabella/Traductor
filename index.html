@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <title>Traductor EPUB automático</title>
+    <style>
+        #progressBar {
+            width: 100%;
+            background-color: #ddd;
+            height: 25px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        #progressBar > div {
+            height: 100%;
+            width: 0%;
+            background-color: #4CAF50;
+            border-radius: 5px;
+            text-align: center;
+            color: white;
+            line-height: 25px;
+        }
+        #message {
+            margin-top: 15px;
+            font-weight: bold;
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>Traductor automático de libros EPUB</h1>
+
+    <form id="uploadForm">
+        <input type="file" id="epubFile" accept=".epub" required />
+        <button type="submit">Traducir</button>
+    </form>
+
+    <div id="progressBar" style="display:none;">
+        <div id="progressBarFill">0%</div>
+    </div>
+
+    <div id="message"></div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const progressBar = document.getElementById('progressBar');
+        const progressBarFill = document.getElementById('progressBarFill');
+        const message = document.getElementById('message');
+        let outputFile = '';
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            message.textContent = '';
+            progressBar.style.display = 'block';
+            progressBarFill.style.width = '0%';
+            progressBarFill.textContent = '0%';
+
+            const fileInput = document.getElementById('epubFile');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Por favor selecciona un archivo EPUB.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('epub_file', file);
+
+            fetch('/upload', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+                    outputFile = data.output_file;
+                    checkProgress();
+                })
+                .catch(err => alert('Error: ' + err));
+        });
+
+        function checkProgress() {
+            fetch('/progress')
+                .then(res => res.json())
+                .then(data => {
+                    let prog = data.progress;
+                    progressBarFill.style.width = prog + '%';
+                    progressBarFill.textContent = prog + '%';
+
+                    if (prog < 100) {
+                        setTimeout(checkProgress, 500);
+                    } else {
+                        message.textContent = 'Texto ya traducido, se está descargando';
+                        // Descargar automáticamente el archivo traducido
+                        window.location.href = '/download?file=' + encodeURIComponent(outputFile);
+                    }
+                })
+                .catch(() => {
+                    setTimeout(checkProgress, 1000);
+                });
+        }
+    </script>
+</body>
+</html>
